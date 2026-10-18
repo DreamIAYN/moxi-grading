@@ -1,0 +1,10 @@
+node_modules
+dist
+data/jobs
+data/rubrics
+data/tmp
+.npm-cache
+.env
+*.log
+bin/cloudflared
+data/users.json
