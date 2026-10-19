@@ -2,12 +2,13 @@ import type { ReactNode } from 'react';
 import { BookOpenCheck, History, LibraryBig, LogOut, Settings2, Sparkles, UserRound } from 'lucide-react';
 import type { AuthUser } from '../types';
 
-export type View = 'workbench' | 'result' | 'rubrics' | 'history' | 'settings';
+export type View = 'workbench' | 'result' | 'rubrics' | 'history' | 'appeals' | 'settings';
 
 const NAV: { id: View; label: string; sub: string }[] = [
   { id: 'workbench', label: '批改台', sub: 'WORKBENCH' },
   { id: 'rubrics', label: '评分标准', sub: 'RUBRICS' },
   { id: 'history', label: '历史报告', sub: 'ARCHIVE' },
+  { id: 'appeals', label: '申诉', sub: 'APPEALS' },
 ];
 
 interface HeaderProps {

@@ -1,4 +1,19 @@
 export type Severity = 'correct' | 'error' | 'warning' | 'info';
+export type AppealStatus = 'open' | 'reviewing' | 'resolved' | 'rejected';
+
+export interface Appeal {
+  id: string;
+  jobId: string;
+  userId: string;
+  username: string;
+  message: string;
+  contact?: string;
+  status: AppealStatus;
+  adminResponse?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -75,6 +90,27 @@ export interface RubricPartialRule {
   exclusive?: boolean;
 }
 
+export interface SearchResult {
+  title: string;
+  url: string;
+  snippet: string;
+}
+
+export interface CitedResult {
+  name: string;
+  statement: string;
+  known?: boolean;
+  searchQuery?: string;
+  searchResults?: SearchResult[];
+  searchError?: string;
+  status?: 'known' | 'verified' | 'derived' | 'unverified';
+  evidence?: string;
+  criteria?: string[];
+  firstUse?: string;
+  note?: string;
+  blocksConclusion?: boolean;
+}
+
 export interface StudentRoute {
   status: 'valid' | 'partial' | 'invalid';
   summary: string;
@@ -106,6 +142,7 @@ export interface GeneratedRubric {
   triviality?: string;
   source?: string;
   zeroConditions?: string[];
+  citedResults?: CitedResult[];
   studentRoute?: StudentRoute;
   pdfUrl: string;
 }
@@ -138,6 +175,7 @@ export interface GradingResult {
   dimensions: Dimension[];
   criteria: Criterion[];
   substantiveGate?: { passed: boolean; reason: string };
+  citedResults?: CitedResult[];
   annotations: Annotation[];
   strengths: string[];
   improvements: string[];

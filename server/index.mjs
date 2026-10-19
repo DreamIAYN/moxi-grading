@@ -38,6 +38,8 @@ import {
 import { buildRubricPdf } from './rubric-pdf.mjs';
 import { getScoreScheme, normalizePaperQuestions, categoryLabel } from './scoring.mjs';
 import { generatePdf, texStatus } from './pdf.mjs';
+import { searchWeb } from './search.mjs';
+import { createAppeal, listAppeals, readAppeal, updateAppeal } from './appeals.mjs';
 import {
   attachUser,
   requireUser,
@@ -294,6 +296,7 @@ function requireUserOrInternal(req, res, next) {
 app.use('/api/jobs', requireUser);
 app.use('/api/rubrics', requireUser);
 app.use('/api/tasks', requireUser);
+app.use('/api/appeals', requireUser);
 app.use('/api/grade', requireUserOrInternal);
 app.use('/api/test-connection', requireUser);
 
@@ -391,6 +394,59 @@ app.get('/api/rubrics/:id/pdf', async (req, res, next) => {
     res.sendFile(path.resolve(file));
   } catch (error) {
     error.status = error.status || 404;
+    next(error);
+  }
+});
+
+app.post('/api/jobs/:id/appeal', async (req, res, next) => {
+  try {
+    const job = await readJobForUser(req);
+    const record = await createAppeal({
+      jobId: job.id,
+      userId: req.user.id,
+      username: req.user.username,
+      message: req.body?.message,
+      contact: req.body?.contact,
+    });
+    res.status(201).json({ appeal: record });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/jobs/:id/appeal', async (req, res, next) => {
+  try {
+    const job = await readJobForUser(req);
+    const appeals = (await listAppeals()).filter((item) => item.jobId === job.id && (req.user.role === 'admin' || item.userId === req.user.id));
+    res.json({ appeals });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/appeals', async (req, res, next) => {
+  try {
+    const appeals = (await listAppeals()).filter((item) => req.user.role === 'admin' || item.userId === req.user.id);
+    res.json({ appeals });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.patch('/api/appeals/:id', async (req, res, next) => {
+  try {
+    if (req.user.role !== 'admin') {
+      const error = new Error('需要超级管理员权限。');
+      error.status = 403;
+      throw error;
+    }
+    const record = await readAppeal(req.params.id);
+    const updated = await updateAppeal(record.id, {
+      status: req.body?.status,
+      adminResponse: req.body?.adminResponse,
+    });
+    res.json({ appeal: updated });
+  } catch (error) {
     next(error);
   }
 });
@@ -664,6 +720,20 @@ app.post('/api/grade', async (req, res, next) => {
             warnings.push(`自动制定评分标准失败，已使用通用评分框架：${error.message}`);
           }
         }
+        if (Array.isArray(rubric.citedResults) && rubric.citedResults.length) {
+          const pending = rubric.citedResults
+            .filter((item) => item && item.known !== true && (item.searchQuery || item.name))
+            .slice(0, 5);
+          await Promise.all(pending.map(async (item) => {
+            try {
+              item.searchResults = await searchWeb(item.searchQuery || item.name);
+              if (!item.searchResults.length) item.searchError = '未搜索到结果';
+            } catch (error) {
+              item.searchResults = [];
+              item.searchError = error.message || '联网核验失败';
+            }
+          }));
+        }
         const pdfBuffer = await buildRubricPdf(rubric);
         const record = await createRubricRecord({
           rubric,
@@ -749,6 +819,7 @@ app.post('/api/grade', async (req, res, next) => {
             questionDefs: effectiveQuestions,
             scoreScheme: scheme,
             studentRoute: generatedRubric?.studentRoute || null,
+            citedResults: generatedRubric?.citedResults || [],
           },
           images,
           rubricItems: effectiveRubricItems,

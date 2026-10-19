@@ -41,6 +41,25 @@ function zeroRows(rubric) {
 }
 
 
+
+function citationSection(rubric) {
+  const items = Array.isArray(rubric.citedResults) ? rubric.citedResults : [];
+  if (!items.length) return '';
+  const rows = items.map((item, index) => {
+    const status = item.known ? '已知' : item.searchResults?.length ? '待评分步核验（有搜索结果）' : '待核验（无搜索结果）';
+    const evidence = (item.searchResults || []).slice(0, 2).map((r) => `${r.title}：${r.snippet}`).join('；');
+    return `\\item {\\bfseries ${rich(item.name || `引用 ${index + 1}`)}}\\quad {\\scriptsize\\color{muted}${rich(status)}}\\par{\\small ${rich(item.statement || item.whyNeeded || '')}}${evidence ? `\\par{\\scriptsize\\color{muted}${rich(evidence)}}` : ''}`;
+  }).join('\n');
+  return `\\vspace{3mm}
+{\\bfseries\\large 引用定理预检}\\par\\vspace{1mm}
+\\begin{tcolorbox}[enhanced,breakable,colback=paper,colframe=accent,arc=1mm,boxrule=0.5pt,left=4mm,right=4mm,top=3mm,bottom=3mm]
+{\\small 评分时会逐条核验；未核验且无法补证的引用，其后继评分点按 0 分处理。}\\par\\vspace{1mm}
+\\begin{itemize}[leftmargin=5mm,itemsep=1.2mm,topsep=1mm]
+${rows}
+\\end{itemize}
+\\end{tcolorbox}`;
+}
+
 function studentRouteSection(rubric) {
   const route = rubric.studentRoute;
   if (!route) return '';
@@ -72,6 +91,7 @@ function partialRows(rubric) {
 
 export function buildRubricLatex(rubric) {
   const routeSection = studentRouteSection(rubric);
+  const citationBlock = citationSection(rubric);
   const levels = Array.isArray(rubric.levels) && rubric.levels.length ? rubric.levels.map(fmt).join(' / ') : '按题给分';
   const rubricCode = String(rubric.id || '').slice(-8).toUpperCase();
   return `\\documentclass[UTF8,fontset=fandol,11pt]{ctexart}
@@ -130,6 +150,7 @@ ${rich(rubric.summary || '')}
 \\end{tcolorbox}
 \\vspace{3mm}
 ${routeSection}
+${citationBlock}
 {\\bfseries\\large 评分点与分档}\\par\\vspace{1mm}
 \\begin{longtable}{@{}>{\\raggedright\\arraybackslash}p{0.27\\textwidth}>{\\centering\\arraybackslash}p{0.09\\textwidth}>{\\raggedright\\arraybackslash}p{0.58\\textwidth}@{}}
 \\toprule

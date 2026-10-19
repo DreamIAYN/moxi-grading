@@ -29,7 +29,8 @@ export const RUBRIC_SYSTEM_PROMPT = `你是一位数学竞赛命题组阅卷负�
 
 ${SOLVING_SKILL_POLICY}
 
-11. 只输出一个合法 JSON 对象，不要 Markdown 代码围栏或解释。
+11. **引用定理核验**：列出学生在解答中引用的所有命名定理、引理或外部结论。你确定其陈述无误时 known=true；不确定时必须 known=false，并给出适合搜索引擎的 searchQuery（尽量用定理的标准名称）。系统会联网查找并把结果交给评分步骤；找不到的按证明不完整处理。
+12. 只输出一个合法 JSON 对象，不要 Markdown 代码围栏或解释。
 
 【JSON 结构】
 {
@@ -57,6 +58,15 @@ ${SOLVING_SKILL_POLICY}
     ],
     "scoringNote": "按学生路线如何给分；不在学生路线上的步骤不作为必得分点"
   },
+  "citedResults": [
+    {
+      "name": "学生引用的定理/引理名称",
+      "statement": "学生实际使用的陈述（含条件）",
+      "known": true,
+      "searchQuery": "不确定时用于联网核验的查询词",
+      "whyNeeded": "它在学生路线中支撑哪一步"
+    }
+  ],
   "triviality": "说明本题哪些结论较平凡、哪些步骤才算实质进展，以及部分分如何按此判断",
   "zeroConditions": [
     "只写最终答案，没有任何可核验推导（填空除外）",
@@ -305,6 +315,22 @@ export function fallbackRubric(ctx, template = null) {
 
 
 
+
+function normalizeCitedResults(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item) => item && typeof item === 'object')
+    .slice(0, 12)
+    .map((item) => ({
+      name: clean(item.name, '').slice(0, 160),
+      statement: clean(item.statement, '').slice(0, 1200),
+      known: item.known === true,
+      searchQuery: clean(item.searchQuery, '').slice(0, 240),
+      whyNeeded: clean(item.whyNeeded, '').slice(0, 500),
+    }))
+    .filter((item) => item.name || item.statement);
+}
+
 function normalizeStudentRoute(raw) {
   if (!raw || typeof raw !== 'object') return null;
   const status = ['valid', 'partial', 'invalid'].includes(raw.status)
@@ -426,6 +452,7 @@ export function normalizeGeneratedRubric(raw, ctx) {
     triviality: studentFacing(raw?.triviality, categoryTriviality(ctx.category)).slice(0, 2000),
     source: studentFacing(raw?.source, 'AI 依据题面制定（未提供官方评分标准）').slice(0, 300),
     studentRoute: normalizeStudentRoute(raw?.studentRoute),
+    citedResults: normalizeCitedResults(raw?.citedResults),
     zeroConditions: Array.isArray(raw?.zeroConditions) && raw.zeroConditions.length
       ? raw.zeroConditions.map((item) => clean(item, '')).filter(Boolean).slice(0, 8)
       : [

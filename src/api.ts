@@ -1,4 +1,4 @@
-import type { AppConfig, AuthUser, GradeInput, GradingResult, JobMeta } from './types';
+import type { Appeal, AppConfig, AuthUser, GradeInput, GradingResult, JobMeta } from './types';
 
 async function parseResponse<T>(res: Response): Promise<T> {
   const text = await res.text();
@@ -134,4 +134,28 @@ export async function registerUser(username: string, password: string): Promise<
 
 export async function logoutUser(): Promise<void> {
   await fetch('/api/auth/logout', { method: 'POST' });
+}
+
+
+export async function submitAppeal(jobId: string, message: string, contact?: string): Promise<Appeal> {
+  const data = await parseResponse<{ appeal: Appeal }>(await fetch(`/api/jobs/${encodeURIComponent(jobId)}/appeal`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, contact }),
+  }));
+  return data.appeal;
+}
+
+export async function fetchAppeals(): Promise<Appeal[]> {
+  const data = await parseResponse<{ appeals: Appeal[] }>(await fetch('/api/appeals'));
+  return data.appeals;
+}
+
+export async function updateAppeal(id: string, payload: { status?: Appeal['status']; adminResponse?: string }): Promise<Appeal> {
+  const data = await parseResponse<{ appeal: Appeal }>(await fetch(`/api/appeals/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  }));
+  return data.appeal;
 }

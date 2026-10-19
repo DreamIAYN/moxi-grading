@@ -1,14 +1,14 @@
 import crypto from 'node:crypto';
 import { jsonrepair } from 'jsonrepair';
 import { buildLevels, categoryLabel, getScoreScheme, snapScore } from './scoring.mjs';
-import { studentRoutePromptBlock } from './skill-policy.mjs';
+import { citedResultsPromptBlock, studentRoutePromptBlock } from './skill-policy.mjs';
 
 const SEVERITIES = new Set(['correct', 'error', 'warning', 'info']);
 
 export const SYSTEM_PROMPT = `你是一位资深数学竞赛阅卷人，长期参与高中数学联赛、CMO / IMO 级别命题与阅卷。你的任务不是“夸赞解答”，而是像真实阅卷一样：先独立判断题目与正确解法，再逐行审读学生手写稿，按评分标准给出可复核的分数，并把问题定位到具体位置。
 
 【工作原则】
-1. 先自行解题、核验结论，再开始评分。不要因为学生写得长或字迹工整就给分，也不要因为字迹潦草而扣分；只有当书写影响数学可读性时才提示。
+1. 不要另做参考解；先按学生实际路线核验结论，再开始评分。不要因为学生写得长或字迹工整就给分，也不要因为字迹潦草而扣分；只有当书写影响数学可读性时才提示。
 2. 只评价稿纸上真实出现的内容，不替学生补全未写出的步骤。若某一步可能有多种理解，明确指出歧义，并按较合理的一种暂评。
 3. 对每一个扣分点必须说明：这一步哪里不成立、为什么、应如何补正。禁止使用“过程不够严谨”“再完善一下”这类空泛评语。
 4. 分数必须有据可查：criteria 中各项 awarded 之和应等于总分 score。若使用给定评分模板，必须沿用模板的评分项与满分，不得另立项目。
@@ -50,6 +50,16 @@ annotations 用于在原始手写页面上画框。坐标以对应解答页图�
       "rubric": "关联的评分项名称",
       "question": "题号（整卷模式填写，如 9）",
       "delta": -1
+    }
+  ],
+  "citedResults": [
+    {
+      "name": "引用定理/引理名称",
+      "status": "known | verified | derived | unverified",
+      "evidence": "核验依据或你自己补出的推导；unverified 时说明缺什么",
+      "criteria": ["受影响的评分项名称"],
+      "blocksConclusion": false,
+      "note": "是否导致证明不完整，以及后续引用如何处理"
     }
   ],
   "strengths": ["具体优点，避免空话"],
@@ -113,6 +123,25 @@ function fallbackCriteria(rubricItems, maxScore, score) {
       status: ratio >= 0.999 ? 'full' : awarded > 0 ? 'partial' : 'miss',
     };
   });
+}
+
+
+function normalizeCitationResults(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item) => item && typeof item === 'object')
+    .slice(0, 16)
+    .map((item) => ({
+      name: cleanText(item.name, '').slice(0, 160),
+      status: ['known', 'verified', 'derived', 'unverified'].includes(item.status) ? item.status : 'unverified',
+      evidence: cleanText(item.evidence, '').slice(0, 1200),
+      criteria: Array.isArray(item.criteria)
+        ? item.criteria.map((name) => cleanText(name, '')).filter(Boolean).slice(0, 8)
+        : [],
+      blocksConclusion: item.blocksConclusion === true,
+      note: cleanText(item.note, '').slice(0, 800),
+    }))
+    .filter((item) => item.name);
 }
 
 function normalizeCriteria(rawCriteria, rubricItems, maxScore, score, scheme) {
@@ -281,6 +310,21 @@ export function normalizeResult(raw, ctx) {
   score = roundHalf(clamp(score, 0, maxScore));
   if (!criteria.length) criteria = fallbackCriteria(ctx.rubricItems || [], maxScore, score);
 
+  const citedResults = normalizeCitationResults(raw?.citedResults);
+  const blockedCriteria = new Set(
+    citedResults
+      .filter((item) => item.status === 'unverified')
+      .flatMap((item) => item.criteria),
+  );
+  const blockedAll = citedResults.some((item) => item.status === 'unverified' && (!item.criteria.length || item.blocksConclusion));
+  if (blockedCriteria.size || blockedAll) {
+    criteria = criteria.map((item) => {
+      const blocked = blockedAll || blockedCriteria.has(item.name);
+      return blocked ? { ...item, awarded: 0, status: 'miss', reason: `${item.reason ? `${item.reason}；` : ''}引用定理未核验，按证明不完整处理` } : item;
+    });
+    score = questions ? score : roundHalf(criteria.reduce((sum, item) => sum + item.awarded, 0));
+  }
+
   let substantiveGate = null;
   if (!questions && raw?.substantiveGate && typeof raw.substantiveGate === 'object') {
     const passed = raw.substantiveGate.passed !== false && raw.substantiveGate.scoreAllowed !== false;
@@ -332,6 +376,7 @@ export function normalizeResult(raw, ctx) {
       : cleanText(raw?.overallComment, cleanText(raw?.summary, '已完成批改。')),
     dimensions,
     criteria,
+    citedResults,
     substantiveGate: substantiveGate || undefined,
     annotations: normalizeAnnotations(raw?.annotations, ctx.solutionCount || 1),
     strengths,
@@ -340,7 +385,7 @@ export function normalizeResult(raw, ctx) {
   };
 }
 
-export function buildRequestMessages({ problemText, solutionCount, problemCount, rubricText, rubricName, rubricItems, maxScore, strictness, studentName, sourceLabel, images, category = 'other', paperMode = false, questionDefs = [], scoreScheme = null, studentRoute = null }) {
+export function buildRequestMessages({ problemText, solutionCount, problemCount, rubricText, rubricName, rubricItems, maxScore, strictness, studentName, sourceLabel, images, category = 'other', paperMode = false, questionDefs = [], scoreScheme = null, studentRoute = null, citedResults = [] }) {
   const strictMap = {
     standard: '按常规竞赛阅卷尺度赋分，既看结论也看论证完整性。',
     strict: '采用从严尺度：任何实质性跳步、未说明的范围或未验证的边界都要扣分。',
@@ -390,12 +435,15 @@ ${templateText}
 
 ${studentRoutePromptBlock(studentRoute)}
 
+${citedResultsPromptBlock(citedResults)}
+
 【用户提供的答案 / 评分标准】
 ${rubricText || '（未提供；系统已在上一步生成了本题评分标准 PDF，请按下方评分点给分）'}
 
 【输出要求】
 ${paperMode ? '- 必须逐题输出 questions 数组，包含上述每一题，不得合并或漏题。' : '- 必须逐项输出 criteria，各项 awarded 必须是允许档位中的数。'}
 - 所有得分必须落在【允许档位】上；填空只有 0 或满分。
+- 必须输出 citedResults：学生在解答中引用的每个命名定理/引理都要列出；不确定或搜不到的标 unverified，并把依赖它的 criteria awarded 置 0。
 - 必须输出 substantiveGate：{ passed: 布尔值, reason: 一句话说明是否通过实质给分门禁 }；整卷模式每题的 questions[] 加 substantive 布尔值，未通过则该题 score=0。
 - criteria 中每项 awarded>0 时，必须给出 evidence 字段，引用卷面上对应的具体步骤/结论；只有正确子结论才给分。
 - 每条 error / warning 必须说明“错在哪、为什么、如何改”。

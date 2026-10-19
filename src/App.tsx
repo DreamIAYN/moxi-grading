@@ -4,6 +4,7 @@ import Workbench from './components/Workbench';
 import ResultView from './components/ResultView';
 import RubricLibrary from './components/RubricLibrary';
 import HistoryView from './components/HistoryView';
+import AppealsView from './components/AppealsView';
 import SettingsView from './components/SettingsView';
 import LoginView from './components/LoginView';
 import Toast, { type ToastState } from './components/Toast';
@@ -13,7 +14,7 @@ import type { AppConfig, AuthUser, GradingResult, StoredSettings } from './types
 
 function initialView(): View {
   const hash = window.location.hash.replace('#', '');
-  if (['workbench', 'rubrics', 'history', 'settings'].includes(hash)) return hash as View;
+  if (['workbench', 'rubrics', 'history', 'appeals', 'settings'].includes(hash)) return hash as View;
   return 'workbench';
 }
 
@@ -56,7 +57,7 @@ export default function App() {
   useEffect(() => {
     const onHash = () => {
       const hash = window.location.hash.replace('#', '') as View;
-      if (['workbench', 'rubrics', 'history', 'settings', 'result'].includes(hash)) setView(hash);
+      if (['workbench', 'rubrics', 'history', 'appeals', 'settings', 'result'].includes(hash)) setView(hash);
     };
     window.addEventListener('hashchange', onHash);
     return () => window.removeEventListener('hashchange', onHash);
@@ -130,6 +131,7 @@ export default function App() {
             onToast={notify}
           />
         )}
+        {effectiveView === 'appeals' && <AppealsView user={user} onToast={notify} />}
         {effectiveView === 'settings' && (
           <SettingsView config={config} settings={settings} onChange={setSettings} onToast={notify} />
         )}

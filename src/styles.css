@@ -1343,3 +1343,38 @@ ul, ol { margin: 0; }
 .route-credit.is-full { border-color: rgba(45,120,80,0.35); color: #2d7850; }
 .route-credit.is-partial { border-color: rgba(179,120,43,0.35); color: #9a6a2b; }
 .route-credit.is-none { border-color: rgba(179,58,43,0.3); color: var(--accent); }
+
+.citation-audit { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.citation-audit h3 { margin-bottom: 8px; color: var(--accent); font-family: var(--font-serif); font-size: 17px; }
+.citation-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 8px; padding: 8px 0; border-bottom: 1px dashed var(--line); }
+.citation-row strong { font-size: 11px; }
+.citation-row > span { align-self: start; padding: 2px 5px; border: 1px solid var(--line); font-size: 8px; }
+.citation-row p { grid-column: 1 / -1; color: var(--muted); font-size: 10.5px; line-height: 1.7; }
+.citation-row.is-known > span, .citation-row.is-verified > span { color: #2d7850; border-color: rgba(45,120,80,0.35); }
+.citation-row.is-derived > span { color: #6b5b9a; border-color: rgba(107,91,154,0.35); }
+.citation-row.is-unverified > span { color: var(--accent); border-color: rgba(179,58,43,0.35); }
+
+.appeal-modal { width: min(560px, calc(100vw - 32px)); padding: 22px 24px 20px; background: var(--surface); border: 1px solid var(--line-strong); }
+.appeal-modal > header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+.appeal-modal h2 { margin-top: 4px; font-family: var(--font-serif); font-size: 25px; }
+.appeal-modal .modal-note { margin-bottom: 16px; color: var(--muted); font-size: 10.5px; line-height: 1.7; }
+.appeal-modal textarea { width: 100%; padding: 10px 12px; border: 1px solid var(--line-strong); background: var(--surface-2); color: var(--ink); font: inherit; font-size: 12px; line-height: 1.7; resize: vertical; outline: none; }
+.appeal-modal textarea:focus { border-color: var(--accent); background: #fffdf7; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.appeals-view { max-width: 1180px; margin: 0 auto; padding: 34px 28px 70px; }
+.appeal-list { display: grid; gap: 12px; }
+.appeal-card { padding: 18px 20px; border: 1px solid var(--line-strong); background: var(--surface); }
+.appeal-card > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.appeal-card > header > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.appeal-card > header strong { font-size: 12px; }
+.appeal-card > header small, .appeal-card > header time { color: var(--muted); font-size: 9px; }
+.appeal-status { padding: 2px 6px; border: 1px solid var(--line); font-size: 8.5px; }
+.appeal-card.is-open .appeal-status { color: var(--accent); border-color: rgba(179,58,43,0.35); }
+.appeal-card.is-resolved .appeal-status { color: #2d7850; border-color: rgba(45,120,80,0.35); }
+.appeal-message { margin: 10px 0 6px; font-size: 12px; line-height: 1.8; white-space: pre-wrap; }
+.appeal-contact { color: var(--muted); font-size: 9.5px; }
+.appeal-response { margin-top: 10px; padding: 10px 12px; border-left: 2px solid var(--accent); background: var(--surface-2); font-size: 11px; line-height: 1.7; }
+.appeal-response strong { display: block; margin-bottom: 3px; color: var(--accent); font-size: 9px; }
+.appeal-admin { display: flex; gap: 8px; align-items: flex-start; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.appeal-admin select { padding: 7px; border: 1px solid var(--line-strong); background: var(--surface); font-size: 10px; }
+.appeal-admin textarea { flex: 1; min-height: 50px; padding: 7px 9px; border: 1px solid var(--line-strong); background: var(--surface-2); font: inherit; font-size: 10.5px; }

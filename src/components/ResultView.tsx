@@ -11,10 +11,12 @@ import {
   Download,
   FileText,
   LoaderCircle,
+  MessageSquareWarning,
   Minus,
   Plus,
   RotateCcw,
   Sparkles,
+  X,
   Target,
   ZoomIn,
 } from 'lucide-react';
@@ -23,7 +25,7 @@ import {
   formatDate,
   scoreTone,
 } from '../lib';
-import { pdfUrl } from '../api';
+import { pdfUrl, submitAppeal } from '../api';
 import type { Annotation, GradingResult } from '../types';
 import MathText from './MathText';
 
@@ -42,6 +44,10 @@ export default function ResultView({ result, onBack, onNew, onToast }: ResultVie
   const [zoom, setZoom] = useState(1);
   const [filter, setFilter] = useState<Filter>('all');
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [appealOpen, setAppealOpen] = useState(false);
+  const [appealMessage, setAppealMessage] = useState('');
+  const [appealContact, setAppealContact] = useState('');
+  const [appealBusy, setAppealBusy] = useState(false);
   const annotationRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const ratio = result.maxScore > 0 ? result.score / result.maxScore : 0;
   const tone = scoreTone(ratio);
@@ -109,6 +115,7 @@ export default function ResultView({ result, onBack, onNew, onToast }: ResultVie
       <div className="result-toolbar">
         <button className="back-button" onClick={onBack}><ArrowLeft size={16} /> 返回批改台</button>
         <div className="result-toolbar-actions">
+          <button className="ghost-button" onClick={() => setAppealOpen(true)}><MessageSquareWarning size={15} /> 申诉</button>
           <button className="ghost-button" onClick={onNew}><RotateCcw size={15} /> 批改下一题</button>
           <button className="download-button" onClick={downloadPdf} disabled={pdfBusy}>
             {pdfBusy ? <LoaderCircle className="spin" size={16} /> : <Download size={16} />}
@@ -459,6 +466,22 @@ export default function ResultView({ result, onBack, onNew, onToast }: ResultVie
                   {result.generatedRubric.studentRoute.acceptedSteps.map((step) => <span key={step}>{step}</span>)}
                 </div>
               ) : null}
+              {result.generatedRubric.citedResults?.length ? (
+                <div className="citation-audit">
+                  <h3>引用定理核验</h3>
+                  {result.generatedRubric.citedResults.map((item) => {
+                    const audit = result.citedResults?.find((entry) => entry.name === item.name);
+                    const status = audit?.status || (item.known ? 'known' : 'unverified');
+                    return (
+                      <div className={`citation-row is-${status}`} key={item.name}>
+                        <strong>{item.name}</strong>
+                        <span>{({ known: '已知', verified: '联网确认', derived: '已补证', unverified: '未核验' } as Record<string, string>)[status] || status}</span>
+                        <p>{audit?.evidence || item.statement}{audit?.note ? ` · ${audit.note}` : ''}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
               {result.generatedRubric.studentRoute.criterionMap?.length ? (
                 <div className="route-map">
                   <h3>评分点映射</h3>
@@ -533,6 +556,46 @@ export default function ResultView({ result, onBack, onNew, onToast }: ResultVie
           </div>
         </div>
       </section>
+
+      {appealOpen && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setAppealOpen(false); }}>
+          <div className="modal-card appeal-modal" role="dialog" aria-modal="true" aria-label="申诉本次评分">
+            <header>
+              <div><span className="eyebrow">GRADE APPEAL</span><h2>申诉本次评分</h2></div>
+              <button className="icon-button" onClick={() => setAppealOpen(false)} aria-label="关闭"><X size={18} /></button>
+            </header>
+            <p className="modal-note">请指出具体评分点、批注或引用定理核验中的问题。管理员会在「申诉」页查看并回复。</p>
+            <label className="login-field">
+              <span>申诉内容</span>
+              <textarea value={appealMessage} onChange={(event) => setAppealMessage(event.target.value)} rows={6} placeholder="例如：第 3 评分点被扣分，但我已写出…；或引用定理核验有误…" />
+            </label>
+            <label className="login-field">
+              <span>联系方式（可选）</span>
+              <input value={appealContact} onChange={(event) => setAppealContact(event.target.value)} placeholder="邮箱 / 微信，仅管理员可见" />
+            </label>
+            <div className="modal-actions">
+              <button className="ghost-button" onClick={() => setAppealOpen(false)}>取消</button>
+              <button className="primary-cta small" disabled={appealBusy || appealMessage.trim().length < 5} onClick={async () => {
+                setAppealBusy(true);
+                try {
+                  await submitAppeal(result.id, appealMessage.trim(), appealContact.trim());
+                  onToast('申诉已提交，管理员会在「申诉」页处理。', 'success');
+                  setAppealOpen(false);
+                  setAppealMessage('');
+                  setAppealContact('');
+                } catch (error) {
+                  onToast(error instanceof Error ? error.message : '申诉提交失败', 'error');
+                } finally {
+                  setAppealBusy(false);
+                }
+              }}>
+                {appealBusy ? <LoaderCircle className="spin" size={15} /> : <MessageSquareWarning size={15} />}
+                {appealBusy ? '提交中…' : '提交申诉'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="report-end">
         <span>墨析 · 让每一处推导都有回应</span>

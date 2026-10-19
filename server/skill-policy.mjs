@@ -26,3 +26,23 @@ ${(route.criterionMap || []).map((item) => `- ${item.criterion || '（未命名�
 
 评分时：不要另做参考解，也不要换成你偏好的解法。只核验学生实际路线；criterionMap 标 full 的评分点不得因步骤“不标准”而扣分。学生路线错误时，只给实际成立的实质子结论分。`;
 }
+
+export function citedResultsPromptBlock(results) {
+  if (!Array.isArray(results) || !results.length) {
+    return '（学生解答未预列出引用定理；评分时若发现命名定理/引理，必须按引用核验规则处理，不确定的标 unverified。）';
+  }
+  return `【学生引用的定理/引理预检与联网结果】
+${results.map((item, index) => `### ${index + 1}. ${item.name || '未命名'}
+陈述：${item.statement || '（略）'}
+学生为何需要：${item.whyNeeded || '（略）'}
+预判：${item.known ? '已知' : '不确定'}
+搜索查询：${item.searchQuery || '（未提供）'}
+搜索结果：
+${(item.searchResults || []).map((r) => `- ${r.title}｜${r.url}\n  ${r.snippet}`).join('\n') || `（无结果${item.searchError ? `：${item.searchError}` : ''}）`}`).join('\n\n')}
+
+核验规则（最高优先级）：
+1. 对每条引用给出 status：known（你确定陈述无误）、verified（联网结果足以确认）、derived（你在解答中补出了证明）、unverified（不知道、搜不到或结果不足以确认）。
+2. unverified 一律按证明不完整处理。除非你能在 evidence 中写出该引理的可核验推导，否则所有依赖该引理的后续评分点 awarded=0。
+3. 不得因为“这是常见定理”就默认成立；不确定必须标 unverified。
+4. 在 citedResults 中用 criteria 列出受影响的评分点名称；若整个结论都依赖它，blocksConclusion=true。`;
+}
