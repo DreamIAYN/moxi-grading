@@ -410,7 +410,7 @@ export default function Workbench({
               <Uploader
                 images={solutionImages}
                 onChange={setSolutionImages}
-                max={12}
+                max={100}
                 emptyTitle="把解答照片或 PDF 放在这里"
                 emptyHint="可一次选择多页；建议光线均匀、纸张铺平"
                 onError={(message) => onToast(message, 'error')}

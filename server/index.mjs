@@ -4,6 +4,8 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import process from 'node:process';
 import { timingSafeEqual, randomBytes } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import {
   PROVIDERS,
   publicProviders,
@@ -26,6 +28,7 @@ import {
   publicRubric,
   readRubricRecord,
   rubricPdfPath,
+  TMP_DIR,
 } from './store.mjs';
 import {
   sanitizeTemplate,
@@ -51,11 +54,12 @@ import {
 } from './auth.mjs';
 
 const app = express();
+const execFileAsync = promisify(execFile);
 const PORT = Number(process.env.PORT || 8787);
 const ROOT = process.cwd();
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
-app.use(express.json({ limit: '92mb' }));
+app.use(express.json({ limit: '160mb' }));
 app.use(attachUser);
 
 const INTERNAL_GRADE_TOKEN = randomBytes(24).toString('hex');
@@ -268,6 +272,47 @@ app.post('/api/auth/login', async (req, res, next) => {
 app.post('/api/auth/logout', (req, res) => {
   res.setHeader('Set-Cookie', clearSessionCookie(req));
   res.json({ ok: true });
+});
+
+app.use('/api/pdf', requireUser);
+
+app.post('/api/pdf/render', async (req, res, next) => {
+  const raw = String(req.body?.dataUrl || '');
+  const match = raw.match(/^data:application\/pdf;base64,([A-Za-z0-9+/=\s]+)$/);
+  if (!match) return next(Object.assign(new Error('PDF 数据格式无效。'), { status: 400 }));
+  const buffer = Buffer.from(match[1].replace(/\s/g, ''), 'base64');
+  if (!buffer.length || buffer.length > 50 * 1024 * 1024) {
+    return next(Object.assign(new Error('PDF 大小需在 50MB 以内。'), { status: 400 }));
+  }
+  const maxPages = Math.max(1, Math.min(100, Number(req.body?.maxPages) || 100));
+  const work = path.join(TMP_DIR, `pdf-${Date.now().toString(36)}-${randomBytes(3).toString('hex')}`);
+  try {
+    await fs.mkdir(work, { recursive: true });
+    const input = path.join(work, 'input.pdf');
+    await fs.writeFile(input, buffer);
+    const python = process.env.PDF_RENDER_PYTHON || 'python3';
+    const pythonPath = [process.env.PYTHONPATH, path.join(process.env.HOME || '', 'none/pylibs')].filter(Boolean).join(':');
+    await execFileAsync(python, [
+      path.join(ROOT, 'server/render-pdf.py'), input, work, String(maxPages), '135',
+    ], { env: { ...process.env, PYTHONPATH: pythonPath }, timeout: 120_000, maxBuffer: 10 * 1024 * 1024 });
+    const manifest = JSON.parse(await fs.readFile(path.join(work, 'manifest.json'), 'utf8'));
+    const pages = [];
+    for (const page of manifest.pages || []) {
+      const file = await fs.readFile(path.join(work, page.file));
+      pages.push({
+        dataUrl: `data:image/jpeg;base64,${file.toString('base64')}`,
+        width: page.width,
+        height: page.height,
+      });
+    }
+    res.json({ pages });
+  } catch (error) {
+    if (!error.status) error.status = 503;
+    error.expose = true;
+    next(error);
+  } finally {
+    await fs.rm(work, { recursive: true, force: true }).catch(() => {});
+  }
 });
 
 app.get('/api/config', async (_req, res) => {
@@ -567,7 +612,7 @@ app.post('/api/grade', async (req, res, next) => {
 
     const problemText = requireString(body.problemText, '题目文字', 60_000);
     const problemImages = requireImageList(body.problemImages, '题目图片', 8);
-    const solutionImages = requireImageList(body.solutionImages, '解答图片', 12);
+    const solutionImages = requireImageList(body.solutionImages, '解答图片', 100);
     const rubricImages = requireImageList(body.rubricImages, '评分标准图片', 12);
     const suppliedRubricText = requireString(body.rubricText, '答案与评分标准', 60_000);
     const rubricName = requireString(body.rubricName, '评分标准名称', 120) || '自动研判';

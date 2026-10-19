@@ -17,7 +17,7 @@
 ## 功能
 
 - **题目输入**：文字题目 + 最多 8 页题目图片 / PDF，支持 LaTeX、整卷与剪贴板粘贴。
-- **手写解答**：最多 12 页，支持图片 / PDF、拖拽上传、鼠标悬停后 `Ctrl/Cmd+V` 粘贴截图、自动压缩、旋转、调整页序、大图预览；结果页用页码、缩略图和“当前页 / 总页数”切换多页批注。
+- **手写解答**：最多 100 页，支持图片 / PDF、拖拽上传、鼠标悬停后 `Ctrl/Cmd+V` 粘贴截图、自动压缩、旋转、调整页序、大图预览；结果页用页码、缩略图和“当前页 / 总页数”切换多页批注。
 - **答案 / 评分标准（可选）**：可粘贴官方答案、评分细则，或上传最多 12 页扫描图 / PDF；也可选择内置评分模板。
 - **评分前制定标准**：未提供官方细则时，先调用模型拆解评分点、允许档位与部分分规则，生成评分标准 PDF，再开始评分；结果页可下载该 PDF。
 - **统一分数档位**：按 50/40/21/7 分题、一试 16/20 分题、填空 0/8 自动约束得分；支持按题给分的整卷模式。
@@ -58,7 +58,7 @@
 
 - 前端：React 19 + TypeScript + Vite，KaTeX 渲染公式。
 - 后端：Node.js + Express，负责模型代理、图片落盘、任务归档和 PDF 编译。
-- PDF：XeLaTeX + ctex + TikZ，使用 Fandol 中文字体；批注框按归一化坐标叠加在解答图片上。PDF 上传由 `pdfjs-dist` 在浏览器端逐页渲染，内置 `cmaps` 与 `standard_fonts`，支持中日韩 CID 字体，不把原始 PDF 发送给模型。
+- PDF：XeLaTeX + ctex + TikZ，使用 Fandol 中文字体；批注框按归一化坐标叠加在解答图片上。PDF 上传优先由服务端 PyMuPDF 逐页渲染为 JPEG（支持中日韩 CID 字体，最多 100 页），浏览器 PDF.js 作为兜底；原始 PDF 不发送给模型。
 - 存储：本地文件系统，不依赖数据库。
 
 ## 用户隔离与管理员
@@ -82,6 +82,7 @@
 
 ```bash
 npm install
+pip install -r server/requirements.txt   # PDF 中文渲染需要 PyMuPDF
 npm run dev
 ```
 
@@ -210,6 +211,7 @@ server/
   grading.mjs             prompt、JSON 解析、结果归一化、演示结果
   skill-policy.mjs       按学生路线做题 / 引用核验规范
   search.mjs             Bing 联网搜索与结果解析
+  render-pdf.py          PyMuPDF 服务端 PDF 逐页渲染（最多 100 页）
   appeals.mjs            申诉持久化
   rubric.mjs             评分前制定评分标准（模型 / 官方模板 / 兜底）
   rubric-pdf.mjs         评分标准 PDF 生成

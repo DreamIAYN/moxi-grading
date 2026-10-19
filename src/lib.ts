@@ -592,7 +592,32 @@ export function categoryLabel(category?: string) {
   return CATEGORY_LABELS[category || 'other'] || CATEGORY_LABELS.other;
 }
 
-export async function pdfToUploadImages(file: File, maxPages = 12): Promise<UploadImage[]> {
+export async function pdfToUploadImages(file: File, maxPages = 100): Promise<UploadImage[]> {
+  // Server-side PyMuPDF rendering is the primary path: it preserves CID/CJK
+  // fonts that browser PDF.js may fail to draw. The browser renderer remains
+  // as a fallback for deployments without a Python PDF renderer.
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    const response = await fetch('/api/pdf/render', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dataUrl, maxPages }),
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(payload?.error || `PDF 渲染失败（HTTP ${response.status}）`);
+    const pages = Array.isArray(payload?.pages) ? payload.pages : [];
+    if (!pages.length) throw new Error('PDF 中没有可识别的页面');
+    return pages.map((page: { dataUrl: string; width: number; height: number }, index: number) => ({
+      id: newId(),
+      dataUrl: page.dataUrl,
+      name: `${file.name.replace(/\.pdf$/i, '')} · 第${index + 1}页`,
+      width: page.width,
+      height: page.height,
+    }));
+  } catch (serverError) {
+    console.warn('[pdf] 服务器渲染失败，尝试浏览器 PDF.js：', serverError);
+  }
+
   const pdfjs = await import('pdfjs-dist');
   pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
   const data = new Uint8Array(await file.arrayBuffer());

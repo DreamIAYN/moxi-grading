@@ -16,7 +16,7 @@ export async function ensureDirs() {
 }
 
 const MAX_PER_IMAGE = 14 * 1024 * 1024;
-const MAX_TOTAL = 75 * 1024 * 1024;
+const MAX_TOTAL = 110 * 1024 * 1024;
 
 function detectImage(buffer) {
   if (buffer.length > 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
@@ -121,7 +121,7 @@ export async function createJob({ input, result, providerName, userId, username 
     if (totalRaw > MAX_TOTAL) throw new Error('上传图片总大小过大，请减少页数或压缩图片');
 
     const problemFiles = await saveImageGroup(jobDir, 'problem', input.problemImages, 8);
-    const solutionFiles = await saveImageGroup(jobDir, 'solution', input.solutionImages, 12);
+    const solutionFiles = await saveImageGroup(jobDir, 'solution', input.solutionImages, 100);
     const rubricFiles = await saveImageGroup(jobDir, 'rubric', input.rubricImages, 12);
 
     const job = {

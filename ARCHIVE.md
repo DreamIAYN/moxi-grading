@@ -8,6 +8,7 @@
 cp .env.example .env
 # 按需填写 OPENCODE_API_KEY / SESSION_SECRET / SUPER_ADMIN_PASSWORD
 npm ci
+pip install -r server/requirements.txt
 npm run build
 npm start
 ```
