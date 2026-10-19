@@ -58,7 +58,7 @@
 
 - 前端：React 19 + TypeScript + Vite，KaTeX 渲染公式。
 - 后端：Node.js + Express，负责模型代理、图片落盘、任务归档和 PDF 编译。
-- PDF：XeLaTeX + ctex + TikZ，使用 Fandol 中文字体；批注框按归一化坐标叠加在解答图片上。PDF 上传由 `pdfjs-dist` 在浏览器端逐页渲染，不把原始 PDF 发送给模型。
+- PDF：XeLaTeX + ctex + TikZ，使用 Fandol 中文字体；批注框按归一化坐标叠加在解答图片上。PDF 上传由 `pdfjs-dist` 在浏览器端逐页渲染，内置 `cmaps` 与 `standard_fonts`，支持中日韩 CID 字体，不把原始 PDF 发送给模型。
 - 存储：本地文件系统，不依赖数据库。
 
 ## 用户隔离与管理员

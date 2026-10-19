@@ -596,7 +596,13 @@ export async function pdfToUploadImages(file: File, maxPages = 12): Promise<Uplo
   const pdfjs = await import('pdfjs-dist');
   pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
   const data = new Uint8Array(await file.arrayBuffer());
-  const task = pdfjs.getDocument({ data });
+  const task = pdfjs.getDocument({
+    data,
+    cMapUrl: '/pdfjs/cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: '/pdfjs/standard_fonts/',
+    useSystemFonts: true,
+  });
   const doc = await task.promise;
   const pages: UploadImage[] = [];
   const count = Math.min(doc.numPages, maxPages);
