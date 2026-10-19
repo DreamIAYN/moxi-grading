@@ -252,7 +252,7 @@ export default function ResultView({ result, onBack, onNew, onToast }: ResultVie
           <div className="summary-side">
             <div className="summary-quote">
               <span className="quote-mark">“</span>
-              <p>{result.summary}</p>
+              <MathText>{result.summary}</MathText>
             </div>
           </div>
         </div>
@@ -325,7 +325,7 @@ export default function ResultView({ result, onBack, onNew, onToast }: ResultVie
                         aria-label={`批注 ${index}：${annotation.title}`}
                       >
                         <span className="annotation-marker" style={{ background: meta.color }}>{index}</span>
-                        {selectedId === annotation.id && <span className="annotation-caption" style={{ borderColor: meta.color }}>{annotation.title}</span>}
+                        {selectedId === annotation.id && <span className="annotation-caption" style={{ borderColor: meta.color }}><MathText className="annotation-caption-text">{annotation.title}</MathText></span>}
                       </button>
                     );
                   })}
@@ -381,7 +381,7 @@ export default function ResultView({ result, onBack, onNew, onToast }: ResultVie
                     <div className="annotation-card-head">
                       <span className="annotation-index">{index}</span>
                       <div>
-                        <strong>{annotation.title}</strong>
+                        <MathText className="annotation-title">{annotation.title}</MathText>
                         {annotation.question ? <span className="question-tag">第 {annotation.question} 题</span> : null}
                         <span className="severity-tag">{meta.label}</span>
                       </div>
