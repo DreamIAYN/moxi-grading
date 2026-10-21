@@ -1383,3 +1383,18 @@ ul, ol { margin: 0; }
 .annotation-title p, .annotation-title .math-text { display: inline; margin: 0; }
 .annotation-caption .math-text { display: inline; font-size: 9px; line-height: 1.4; }
 .annotation-caption .math-text p { display: inline; margin: 0; }
+
+.step-audit-details { border: 1px solid var(--line); background: var(--surface); }
+.step-audit-details > summary { display: flex; justify-content: space-between; gap: 10px; padding: 12px 15px; cursor: pointer; list-style: none; font-size: 11px; }
+.step-audit-details > summary::-webkit-details-marker { display: none; }
+.step-audit-details > summary small { color: var(--muted); font-size: 9px; }
+.step-audit-list { max-height: 520px; overflow: auto; border-top: 1px solid var(--line); }
+.step-audit-row { display: grid; grid-template-columns: minmax(90px, 0.3fr) auto; gap: 4px 10px; padding: 10px 15px; border-bottom: 1px dashed var(--line); }
+.step-audit-page { color: var(--muted); font-size: 9px; letter-spacing: 0.04em; }
+.step-audit-status { justify-self: end; padding: 2px 5px; border: 1px solid var(--line); font-size: 8px; }
+.step-audit-row p { grid-column: 1 / -1; font-size: 11px; line-height: 1.7; }
+.step-audit-row p strong { font-weight: 600; }
+.step-audit-row small { grid-column: 1 / -1; color: var(--muted); font-size: 9px; }
+.step-audit-row.is-correct .step-audit-status { color: #2d7850; border-color: rgba(45,120,80,0.35); }
+.step-audit-row.is-gap .step-audit-status { color: #9a6a2b; border-color: rgba(179,120,43,0.35); }
+.step-audit-row.is-wrong .step-audit-status, .step-audit-row.is-unverified .step-audit-status { color: var(--accent); border-color: rgba(179,58,43,0.35); }

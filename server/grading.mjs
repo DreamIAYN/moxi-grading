@@ -15,7 +15,8 @@ export const SYSTEM_PROMPT = `你是一位资深数学竞赛阅卷人，长期�
 5. 若学生得到正确答案但论证有缺口，给思路分与部分分；若结论错误但关键步骤有价值，也给相应过程分。
 6. 分数必须落在给定的【允许档位】上：50/40 分题通常 10 分一个得分点，21 分题 3 分一个得分点，7 分题 1 分一个得分点；一试填空只有 0/8，一试解答分别按 4 分或 5 分一个得分点。不得出现 7 分、13 分这类不在档位上的分数。
 7. 先判断结论是否平凡：直接套定义、例行变形、重复题设属于平凡步骤；真正推进结论的关键构造、引理、估计与分类讨论才给主要分。组合题分“构造/证明”两个方向时，较简单的方向只按实际贡献给部分分（例如 20/50、10/40、6/21、2/7 这一量级），不要自动给一半或满分。
-8. 只输出一个合法 JSON 对象。不要输出 Markdown 代码围栏、前言、结语或注释。
+8. **长解答必须逐步核验**：解答达到 4 页或整卷模式时，必须逐页、逐个实质步骤核验“这一步是否数学成立、依据是什么、是否偷用未证结论”。不得只写总评或只看首尾；每个评分点 awarded>0 必须能追溯到 stepAudit 中状态为 correct 的步骤。核验覆盖不足时系统会要求重做；仍不足则不计分。
+9. 只输出一个合法 JSON 对象。不要输出 Markdown 代码围栏、前言、结语或注释。
 
 【批注坐标】
 annotations 用于在原始手写页面上画框。坐标以对应解答页图片左上角为原点，x、y、w、h 均为 0–1 的归一化值：
@@ -62,6 +63,18 @@ annotations 用于在原始手写页面上画框。坐标以对应解答页图�
       "note": "是否导致证明不完整，以及后续引用如何处理"
     }
   ],
+  "stepAudit": [
+    {
+      "page": 1,
+      "step": 1,
+      "claim": "这一步实际写了什么（公式/断言/分类/构造）",
+      "status": "correct | gap | wrong | unverified",
+      "check": "逐步核验：依据、条件、边界、是否偷用未证结论",
+      "criteria": ["对应评分点"],
+      "note": "是否需要补证，以及影响"
+    }
+  ],
+  "verificationComplete": true,
   "strengths": ["具体优点，避免空话"],
   "improvements": ["最值得优先改进的问题"],
   "nextSteps": ["可执行的练习或订正建议"]
@@ -125,6 +138,24 @@ function fallbackCriteria(rubricItems, maxScore, score) {
   });
 }
 
+
+
+function normalizeStepAudit(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item) => item && typeof item === 'object')
+    .slice(0, 300)
+    .map((item) => ({
+      page: Math.max(1, Math.round(asNumber(item.page, 1))),
+      step: Math.max(1, Math.round(asNumber(item.step, 1))),
+      claim: cleanText(item.claim, '').slice(0, 1200),
+      status: ['correct', 'gap', 'wrong', 'unverified'].includes(item.status) ? item.status : 'unverified',
+      check: cleanText(item.check, '').slice(0, 1600),
+      criteria: Array.isArray(item.criteria) ? item.criteria.map((name) => cleanText(name, '')).filter(Boolean).slice(0, 6) : [],
+      note: cleanText(item.note, '').slice(0, 800),
+    }))
+    .filter((item) => item.claim || item.check);
+}
 
 function normalizeCitationResults(raw) {
   if (!Array.isArray(raw)) return [];
@@ -310,6 +341,12 @@ export function normalizeResult(raw, ctx) {
   score = roundHalf(clamp(score, 0, maxScore));
   if (!criteria.length) criteria = fallbackCriteria(ctx.rubricItems || [], maxScore, score);
 
+  const stepAudit = normalizeStepAudit(raw?.stepAudit);
+  const verificationIncomplete = raw?.verificationIncomplete === true;
+  if (verificationIncomplete) {
+    criteria = criteria.map((item) => ({ ...item, awarded: 0, status: 'miss', reason: '长解答逐步核验未完成，暂不计分。' }));
+    score = 0;
+  }
   const citedResults = normalizeCitationResults(raw?.citedResults);
   const blockedCriteria = new Set(
     citedResults
@@ -376,6 +413,9 @@ export function normalizeResult(raw, ctx) {
       : cleanText(raw?.overallComment, cleanText(raw?.summary, '已完成批改。')),
     dimensions,
     criteria,
+    stepAudit,
+    verificationIncomplete,
+    verificationComplete: verificationIncomplete ? false : raw?.verificationComplete !== false,
     citedResults,
     substantiveGate: substantiveGate || undefined,
     annotations: normalizeAnnotations(raw?.annotations, ctx.solutionCount || 1),
@@ -409,6 +449,7 @@ ${problemText || '（题目未提供文字，请从题目图片中识读）'}
 
 【题目图片】${problemCount ? `共 ${problemCount} 张，随后按顺序给出。` : '无。'}
 【学生手写解答】共 ${solutionCount} 页，随后按页码顺序给出。批注中的 page 必须对应这里的页码。
+【逐步核验要求】${solutionCount >= 4 || paperMode ? '本解答较长：必须逐页、逐步核验，输出 stepAudit；不能只写总评。' : '建议逐步骤核验；若解答较长，按长解答规则处理。'}
 ${studentName ? `【学生】${studentName}` : ''}
 ${sourceLabel ? `【来源/考试】${sourceLabel}` : ''}
 
@@ -443,6 +484,7 @@ ${rubricText || '（未提供；系统已在上一步生成了本题评分标准
 【输出要求】
 ${paperMode ? '- 必须逐题输出 questions 数组，包含上述每一题，不得合并或漏题。' : '- 必须逐项输出 criteria，各项 awarded 必须是允许档位中的数。'}
 - 所有得分必须落在【允许档位】上；填空只有 0 或满分。
+- 必须输出 stepAudit：解答达到 4 页或整卷模式时，逐页、逐个实质步骤核验；每个 awarded>0 的评分点都要能对应到 status=correct 的步骤。
 - 必须输出 citedResults：学生在解答中引用的每个命名定理/引理都要列出；不确定或搜不到的标 unverified，并把依赖它的 criteria awarded 置 0。
 - 必须输出 substantiveGate：{ passed: 布尔值, reason: 一句话说明是否通过实质给分门禁 }；整卷模式每题的 questions[] 加 substantive 布尔值，未通过则该题 score=0。
 - criteria 中每项 awarded>0 时，必须给出 evidence 字段，引用卷面上对应的具体步骤/结论；只有正确子结论才给分。
@@ -467,20 +509,36 @@ ${paperMode ? '- 必须逐题输出 questions 数组，包含上述每一题，�
   return content;
 }
 
+
+function hasSufficientStepAudit(raw, args) {
+  if (!(Number(args.solutionCount) >= 4 || args.paperMode)) return true;
+  if (!raw || raw.verificationComplete === false) return false;
+  const steps = Array.isArray(raw.stepAudit) ? raw.stepAudit : [];
+  const required = Math.max(1, Number(args.solutionCount) || 1);
+  const pages = new Set(steps.map((item) => Number(item?.page)).filter((page) => Number.isFinite(page) && page >= 1));
+  return steps.length >= required && pages.size >= Math.ceil(required * 0.75);
+}
+
 export async function gradeWithModel({ callModel, args, images, rubricItems }) {
+  const longSolution = Number(args.solutionCount) >= 4 || Boolean(args.paperMode);
   const userContent = buildRequestMessages({
     ...args,
     rubricItems,
     images,
   });
-  const first = await callModel({ systemPrompt: SYSTEM_PROMPT, userContent, jsonMode: true });
+  let raw;
+  let usage;
+  let firstResponse = null;
   try {
-    return { raw: parseJsonPayload(first.content), usage: first.usage };
+    const first = await callModel({ systemPrompt: SYSTEM_PROMPT, userContent, jsonMode: true, maxTokens: longSolution ? 24000 : 16000 });
+    firstResponse = first;
+    raw = parseJsonPayload(first.content);
+    usage = first.usage;
   } catch {
     const repairMessages = [
       ...userContent,
-      { type: 'text', text: `你上一条输出无法被解析为 JSON。请严格只输出一个合法 JSON 对象，不要任何解释或代码围栏。上次输出片段：\n${String(first.content).slice(0, 2500)}` },
-    ];
+      { type: 'text', text: `你上一条输出无法被解析为 JSON。请严格只输出一个合法 JSON 对象，不要任何解释或代码围栏。上次输出片段：\n${String(firstResponse?.content || '').slice(0, 2500)}` },
+    ].filter(Boolean);
     const second = await callModel({
       systemPrompt: SYSTEM_PROMPT + '\n特别注意：只输出 JSON，且不要截断。',
       userContent: repairMessages,
@@ -488,13 +546,36 @@ export async function gradeWithModel({ callModel, args, images, rubricItems }) {
       maxTokens: 16000,
     });
     try {
-      return { raw: parseJsonPayload(second.content), usage: second.usage };
+      raw = parseJsonPayload(second.content);
+      usage = second.usage;
     } catch {
       const error = new Error('模型返回的内容无法解析为评分 JSON，通常是输出过长被截断。请减少批注数量或重试。');
       error.status = 502;
       throw error;
     }
   }
+
+  if (!hasSufficientStepAudit(raw, args)) {
+    const auditMessages = [
+      ...userContent,
+      { type: 'text', text: `上次输出没有达到长解答逐步核验要求：解答共 ${args.solutionCount || 1} 页，必须逐页、逐个实质步骤输出 stepAudit，至少 ${Math.ceil((Number(args.solutionCount) || 1) * 0.75)} 页有核验记录，且每个 awarded>0 的评分项都能追溯到 status=correct 的步骤。请重新输出完整 JSON；不要只写总评。` },
+    ];
+    const audited = await callModel({
+      systemPrompt: SYSTEM_PROMPT + '\n特别注意：长解答必须逐页逐步核验，stepAudit 不能省略。',
+      userContent: auditMessages,
+      jsonMode: true,
+      maxTokens: 24000,
+    });
+    try {
+      raw = parseJsonPayload(audited.content);
+      usage = audited.usage;
+    } catch {
+      raw = { ...(raw || {}), verificationIncomplete: true };
+    }
+    if (!hasSufficientStepAudit(raw, args)) raw.verificationIncomplete = true;
+  }
+  if (longSolution) raw.verificationComplete = !raw.verificationIncomplete;
+  return { raw, usage };
 }
 
 export function demoResult({ maxScore = 12, rubricName = '自动研判', rubricItems = [], problemText, solutionCount = 1, category = 'algebra', scoreUnit = 1, paperMode = false, questions = [], generatedRubric = null }) {

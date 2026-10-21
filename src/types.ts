@@ -96,6 +96,16 @@ export interface SearchResult {
   snippet: string;
 }
 
+export interface StepAuditEntry {
+  page: number;
+  step: number;
+  claim: string;
+  status: 'correct' | 'gap' | 'wrong' | 'unverified';
+  check: string;
+  criteria?: string[];
+  note?: string;
+}
+
 export interface CitedResult {
   name: string;
   statement: string;
@@ -175,6 +185,9 @@ export interface GradingResult {
   dimensions: Dimension[];
   criteria: Criterion[];
   substantiveGate?: { passed: boolean; reason: string };
+  stepAudit?: StepAuditEntry[];
+  verificationComplete?: boolean;
+  verificationIncomplete?: boolean;
   citedResults?: CitedResult[];
   annotations: Annotation[];
   strengths: string[];

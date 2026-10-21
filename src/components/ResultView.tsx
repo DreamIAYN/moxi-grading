@@ -143,6 +143,16 @@ export default function ResultView({ result, onBack, onNew, onToast }: ResultVie
         </div>
       ) : null}
 
+      {result.verificationIncomplete ? (
+        <div className="gate-banner">
+          <CircleAlert size={17} />
+          <div>
+            <strong>长解答逐步核验未完成，暂不计分</strong>
+            <p>系统要求逐页、逐个实质步骤核验；本次未达到覆盖要求。请重试，或通过「申诉」要求人工复核。</p>
+          </div>
+        </div>
+      ) : null}
+
       {result.demo && (
         <div className="demo-banner">
           <Sparkles size={16} />
@@ -437,10 +447,33 @@ export default function ResultView({ result, onBack, onNew, onToast }: ResultVie
         </div>
       </section>
 
+      {result.stepAudit?.length ? (
+        <section className="report-section step-audit-section">
+          <div className="section-heading">
+            <div><span className="section-no">04</span><h2>逐步核验</h2></div>
+            <span className="section-en">STEP AUDIT · {result.stepAudit.length}</span>
+          </div>
+          <p className="section-intro">长解答按页、按实质步骤核验；状态为“成立”的步骤才能支撑评分点。核验不完整的步骤不计分。</p>
+          <details className="step-audit-details" open={result.stepAudit.length <= 12}>
+            <summary><span>查看逐步骤核验记录</span><small>{result.stepAudit.length} 条 · 点击展开</small></summary>
+            <div className="step-audit-list">
+              {result.stepAudit.map((step, index) => (
+                <div className={`step-audit-row is-${step.status}`} key={`${step.page}-${step.step}-${index}`}>
+                  <span className="step-audit-page">第 {step.page} 页 · 步骤 {step.step}</span>
+                  <span className="step-audit-status">{{ correct: '成立', gap: '跳步', wrong: '错误', unverified: '未核验' }[step.status] || step.status}</span>
+                  <p><strong>{step.claim}</strong>{step.check ? ` ${step.check}` : ''}</p>
+                  {step.criteria?.length ? <small>关联：{step.criteria.join('、')}</small> : null}
+                </div>
+              ))}
+            </div>
+          </details>
+        </section>
+      ) : null}
+
       {result.generatedRubric?.studentRoute ? (
         <section className="report-section reference-section">
           <div className="section-heading">
-            <div><span className="section-no">04</span><h2>学生路线评分依据</h2></div>
+            <div><span className="section-no">{result.stepAudit?.length ? '05' : '04'}</span><h2>学生路线评分依据</h2></div>
             <span className="section-en">STUDENT ROUTE</span>
           </div>
           <p className="section-intro">评分标准按学生解答的实际思路制定，不另做参考解。只有学生路线上数学成立的步骤才进入评分点；错误步骤不因为“思路接近”给分。</p>
@@ -501,7 +534,7 @@ export default function ResultView({ result, onBack, onNew, onToast }: ResultVie
 
       <section className="report-section insight-section">
         <div className="section-heading">
-          <div><span className="section-no">05</span><h2>下一步怎么练</h2></div>
+          <div><span className="section-no">{result.stepAudit?.length ? '06' : '05'}</span><h2>下一步怎么练</h2></div>
           <span className="section-en">NEXT STEPS</span>
         </div>
         <div className="insight-grid">
@@ -522,7 +555,7 @@ export default function ResultView({ result, onBack, onNew, onToast }: ResultVie
 
       <section className="report-section basis-section">
         <div className="section-heading">
-          <div><span className="section-no">06</span><h2>评分依据</h2></div>
+          <div><span className="section-no">{result.stepAudit?.length ? '07' : '06'}</span><h2>评分依据</h2></div>
           <span className="section-en">RUBRIC & SOURCE</span>
         </div>
         <div className="basis-grid">

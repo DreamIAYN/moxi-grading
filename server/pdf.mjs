@@ -266,6 +266,29 @@ function coverPage(job) {
 \\end{titlepage}`;
 }
 
+
+function stepAuditSection(r) {
+  const rows = Array.isArray(r.stepAudit) ? r.stepAudit : [];
+  if (!rows.length) return '';
+  const statusLabels = { correct: '成立', gap: '跳步', wrong: '错误', unverified: '未核验' };
+  const body = rows.map((step) => `\\scriptsize 第${step.page}页/${step.step} & \\scriptsize ${statusLabels[step.status] || step.status} & \\scriptsize ${rich(step.claim || '')} & \\scriptsize ${rich(step.check || '')}\\\\`).join('\n');
+  return `\\vspace{5mm}
+{\\bfseries\\large 逐步核验}\\par\\vspace{1mm}
+${r.verificationIncomplete ? '{\\small\\color{accent}长解答逐步核验未完成，本次暂不计分。}\\par\\vspace{1mm}' : ''}
+\\begin{longtable}{@{}>{\\raggedright\\arraybackslash}p{0.12\\textwidth}>{\\centering\\arraybackslash}p{0.08\\textwidth}>{\\raggedright\\arraybackslash}p{0.35\\textwidth}>{\\raggedright\\arraybackslash}p{0.37\\textwidth}@{}}
+\\toprule
+\\small\\color{muted}页/步 & \\small\\color{muted}状态 & \\small\\color{muted}卷面断言 & \\small\\color{muted}逐步核验\\\\
+\\midrule
+\\endfirsthead
+\\toprule
+\\small\\color{muted}页/步 & \\small\\color{muted}状态 & \\small\\color{muted}卷面断言 & \\small\\color{muted}逐步核验\\\\
+\\midrule
+\\endhead
+${body}
+\\bottomrule
+\\end{longtable}`;
+}
+
 function overviewPage(job) {
   const r = job.result;
   const criteriaRows = r.criteria.map((c, index) => `\\small ${index + 1}. ${rich(c.name)} & ${fmt(c.max)} & {\\bfseries ${fmt(c.awarded)}} & {\\scriptsize ${rich(c.reason || '')}}\\\\`).join('\n');
@@ -293,7 +316,8 @@ ${criteriaRows}
 \\midrule
 \\small\\bfseries 合计 & \\bfseries ${fmt(r.maxScore)} & \\bfseries ${fmt(r.score)} & \\\\
 \\bottomrule
-\\end{longtable}`;
+\\end{longtable}
+${stepAuditSection(r)}`;
 }
 
 function problemPage(job) {

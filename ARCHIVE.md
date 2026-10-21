@@ -21,3 +21,5 @@ npm start
 - 公网 Cloudflare Quick Tunnel 已停止；`bin/start-tunnel.sh` 保留，需要时可重新启动。
 - 用户报告与登录用户数据不在归档中，避免泄露个人材料。
 - 超级管理员与模型密钥请在部署机器的 `.env` 中重新配置。
+
+- PDF 中文渲染依赖 `PyMuPDF`，见 `server/requirements.txt`；支持最多 100 页。
